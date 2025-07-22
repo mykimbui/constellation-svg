@@ -891,17 +891,6 @@
                 this.svgCtx.scale(finalScale, finalScale);
                 this.svgCtx.translate(-bounds.x - bounds.width / 2, -bounds.y - bounds.height / 2);
                 
-                // Draw filled SVG shapes with slight opacity
-                this.svgCtx.globalAlpha = opacity * 0.15; // Very subtle fill
-                this.svgCtx.fillStyle = '#ffffff';
-                
-                paths.forEach((pathData, pathIndex) => {
-                    if (pathData.d) {
-                        this.drawFilledPath(pathData.d);
-                    }
-                });
-                
-                // Draw dashed outline on top
                 this.svgCtx.globalAlpha = opacity;
                 this.svgCtx.fillStyle = '#ffffff';
                 
@@ -927,17 +916,6 @@
                 this.svgCtx.scale(finalScale, finalScale);
                 this.svgCtx.translate(-bounds.x - bounds.width / 2, -bounds.y - bounds.height / 2);
                 
-                // Draw filled SVG shapes with slight opacity
-                this.svgCtx.globalAlpha = opacity * 0.15; // Very subtle fill
-                this.svgCtx.fillStyle = '#ffffff';
-                
-                paths.forEach((pathData, pathIndex) => {
-                    if (pathData.d) {
-                        this.drawFilledPath(pathData.d);
-                    }
-                });
-                
-                // Draw dashed outline on top
                 this.svgCtx.globalAlpha = opacity;
                 this.svgCtx.fillStyle = '#ffffff';
                 
@@ -1000,7 +978,7 @@
                 try {
                     const totalLength = pathElement.getTotalLength();
                     const dashLength = 100 / scale;
-                    const dashGap = 50 / scale;
+                    const dashGap = 20 / scale;
                     const dashWidth = this.lineWeight / scale;
                     
                     const animationSpeed = this.animationSpeed * 2;
@@ -1052,7 +1030,7 @@
                 try {
                     const totalLength = pathElement.getTotalLength();
                     const dashLength = 100 / scale;
-                    const dashGap = 50 / scale;
+                    const dashGap = 20 / scale;
                     const dashWidth = this.lineWeight / scale;
                     
                     if (isDrawingOut) {
