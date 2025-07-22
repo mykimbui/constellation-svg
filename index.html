@@ -145,8 +145,9 @@
 
         #starCanvas {
             background: #080E1C;
-            max-width: 100%;
-            max-height: 100%;
+            width: 100%;
+            height: 100%;
+            display: block;
         }
 
         .svg-layer {
@@ -161,6 +162,12 @@
             display: flex;
             align-items: center;
             justify-content: center;
+        }
+
+        #svgCanvas {
+            width: 100%;
+            height: 100%;
+            display: block;
         }
 
         .svg-section {
@@ -244,9 +251,9 @@
         </div>
 
         <div class="canvas-container">
-            <canvas id="starCanvas" width="800" height="800"></canvas>
+            <canvas id="starCanvas"></canvas>
             <div class="svg-layer">
-                <canvas id="svgCanvas" width="800" height="800"></canvas>
+                <canvas id="svgCanvas"></canvas>
             </div>
         </div>
     </div>
@@ -298,7 +305,6 @@
                 
                 // Background stars for starry sky
                 this.backgroundStars = [];
-                this.initializeBackgroundStars();
                 
                 // Default SVG
                 this.defaultSVG = `<svg xmlns="http://www.w3.org/2000/svg" width="58" height="58" viewBox="0 0 58 58" fill="none">
@@ -319,8 +325,16 @@
                 this.setupControls();
                 this.setupFileInput();
                 this.setupMouseTracking();
+                this.resizeCanvases();
+                this.initializeBackgroundStars();
                 this.loadSVG(this.defaultSVG);
                 this.animate();
+                
+                // Handle window resize
+                window.addEventListener('resize', () => {
+                    this.resizeCanvases();
+                    this.initializeBackgroundStars();
+                });
             }
 
             setupControls() {
@@ -393,6 +407,25 @@
                             svgLayer.style.transform = 'perspective(1000px) rotateX(0deg) rotateY(0deg) translateZ(0px)';
                         }
                     });
+                }
+            }
+
+            resizeCanvases() {
+                const container = document.querySelector('.canvas-container');
+                if (container) {
+                    const rect = container.getBoundingClientRect();
+                    const width = rect.width;
+                    const height = rect.height;
+                    
+                    // Set canvas dimensions
+                    this.canvas.width = width;
+                    this.canvas.height = height;
+                    this.svgCanvas.width = width;
+                    this.svgCanvas.height = height;
+                    
+                    // Update center coordinates
+                    this.centerX = width / 2;
+                    this.centerY = height / 2;
                 }
             }
 
@@ -505,7 +538,7 @@
 
             initializeBackgroundStars() {
                 this.backgroundStars = [];
-                const numBackgroundStars = 150; // Reduced number of background stars
+                const numBackgroundStars = Math.floor((this.canvas.width * this.canvas.height) / 4000); // Scale stars based on canvas size
                 
                 for (let i = 0; i < numBackgroundStars; i++) {
                     this.backgroundStars.push({
