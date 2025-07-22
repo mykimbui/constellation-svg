@@ -1,0 +1,1102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Star Map Generator</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: #080E1C;
+            font-family: 'Courier New', monospace;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .container {
+            display: flex;
+            flex: 1;
+            max-height: 100vh;
+        }
+
+        .controls {
+            width: 320px;
+            background: #ffffff;
+            border-right: 1px solid #ddd;
+            padding: 30px 20px;
+            overflow-y: auto;
+        }
+
+        .controls h1 {
+            font-size: 18px;
+            font-weight: normal;
+            margin-bottom: 30px;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            color: #333;
+        }
+
+        .control-group {
+            margin-bottom: 25px;
+        }
+
+        .control-group label {
+            display: block;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 8px;
+            color: #666;
+        }
+
+        .slider-container {
+            position: relative;
+        }
+
+        .slider {
+            width: 100%;
+            height: 2px;
+            background: #ddd;
+            outline: none;
+            -webkit-appearance: none;
+            appearance: none;
+            border-radius: 1px;
+        }
+
+        .slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 12px;
+            height: 12px;
+            background: #333;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+
+        .slider::-moz-range-thumb {
+            width: 12px;
+            height: 12px;
+            background: #333;
+            border-radius: 50%;
+            cursor: pointer;
+            border: none;
+        }
+
+        .value {
+            font-size: 10px;
+            color: #999;
+            margin-top: 5px;
+        }
+
+        .file-input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            font-family: inherit;
+            font-size: 11px;
+            background: #f9f9f9;
+        }
+
+        .textarea {
+            width: 100%;
+            height: 80px;
+            padding: 8px;
+            border: 1px solid #ddd;
+            font-family: inherit;
+            font-size: 10px;
+            background: #f9f9f9;
+            resize: vertical;
+        }
+
+        .button {
+            width: 100%;
+            padding: 8px;
+            background: #333;
+            color: white;
+            border: none;
+            font-family: inherit;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            cursor: pointer;
+            margin-top: 8px;
+        }
+
+        .button:hover {
+            background: #555;
+        }
+
+        .canvas-container {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 40px;
+            background: #080E1C;
+            position: relative;
+            overflow: hidden;
+        }
+
+        #starCanvas {
+            background: #000000;
+            max-width: 100%;
+            max-height: 100%;
+            transform-style: preserve-3d;
+            transition: transform 0.1s ease-out;
+        }
+
+        .svg-section {
+            border-top: 1px solid #eee;
+            padding-top: 20px;
+            margin-top: 20px;
+        }
+
+        .info {
+            font-size: 10px;
+            color: #999;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="controls">
+            <h1>Star Map</h1>
+            
+            <div class="control-group">
+                <label for="pathDensity">Path Point Density</label>
+                <div class="slider-container">
+                    <input type="range" id="pathDensity" class="slider" min="2" max="60" value="40">
+                    <div class="value" id="pathDensityValue">40</div>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <label for="pointSize">Star Size</label>
+                <div class="slider-container">
+                    <input type="range" id="pointSize" class="slider" min="1" max="8" value="2" step="0.5">
+                    <div class="value" id="pointSizeValue">2</div>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <label for="lineWeight">Outline Weight</label>
+                <div class="slider-container">
+                    <input type="range" id="lineWeight" class="slider" min="0.5" max="3" value="1.5" step="0.1">
+                    <div class="value" id="lineWeightValue">1.5</div>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <label for="animationSpeed">Animation Speed</label>
+                <div class="slider-container">
+                    <input type="range" id="animationSpeed" class="slider" min="0.1" max="2" value="0.2" step="0.1">
+                    <div class="value" id="animationSpeedValue">0.2</div>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <label for="outlineOpacity">Outline Opacity</label>
+                <div class="slider-container">
+                    <input type="range" id="outlineOpacity" class="slider" min="0" max="1" value="0.4" step="0.05">
+                    <div class="value" id="outlineOpacityValue">0.4</div>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <button class="button" id="morphButton" onclick="toggleShape()">Switch Shape</button>
+            </div>
+
+            <div class="svg-section">
+                <div class="control-group">
+                    <label for="svgFile">Upload SVG File</label>
+                    <input type="file" id="svgFile" class="file-input" accept=".svg">
+                </div>
+
+                <div class="control-group">
+                    <label for="svgText">Or Paste SVG Code</label>
+                    <textarea id="svgText" class="textarea" placeholder="Paste SVG code here..."></textarea>
+                    <button class="button" onclick="loadSVGFromText()">Load SVG</button>
+                </div>
+
+                <button class="button" onclick="resetToDefault()">Reset to Default</button>
+                
+                <div class="info" id="pointInfo">Stars: 0</div>
+            </div>
+        </div>
+
+        <div class="canvas-container">
+            <canvas id="starCanvas" width="800" height="800"></canvas>
+        </div>
+    </div>
+
+    <script>
+        let starMapInstance = null;
+
+        class StarMapGenerator {
+            constructor() {
+                this.canvas = document.getElementById('starCanvas');
+                this.ctx = this.canvas.getContext('2d');
+                this.centerX = this.canvas.width / 2;
+                this.centerY = this.canvas.height / 2;
+                
+                this.pathDensity = 40;
+                this.pointSize = 2;
+                this.lineWeight = 1.5;
+                this.animationSpeed = 0.2;
+                this.outlineOpacity = 0.4;
+                
+                this.points = [];
+                this.animationOffset = 0;
+                this.svgPaths = [];
+                this.svgBounds = null;
+                this.animating = false;
+                
+                // Morph animation properties
+                this.isMorphing = false;
+                this.morphProgress = 0;
+                this.currentShape = 0;
+                this.morphStartTime = 0;
+                this.morphDuration = 1800;
+                
+                // Transition data
+                this.transitionData = {
+                    oldPaths: [],
+                    oldBounds: null,
+                    oldPoints: [],
+                    newPaths: [],
+                    newBounds: null,
+                    newPoints: []
+                };
+                
+                // Twinkle animation properties
+                this.twinkleOffset = 0;
+                this.starTwinkles = [];
+                
+                // Background stars for starry sky
+                this.backgroundStars = [];
+                this.initializeBackgroundStars();
+                
+                // Default SVG
+                this.defaultSVG = `<svg xmlns="http://www.w3.org/2000/svg" width="58" height="58" viewBox="0 0 58 58" fill="none">
+  <path d="M19.0195 0.579834H23.9883C24.3268 0.580029 24.624 0.806722 24.7139 1.13354V1.13452L27.2051 10.4158V10.4167C27.3166 10.837 27.3307 11.2759 27.2471 11.7009L27.2051 11.8826L25.418 18.5437C24.5406 21.8097 22.039 24.3831 18.8154 25.3601L18.501 25.45L11.8281 27.2351C11.347 27.3622 10.8415 27.3624 10.3604 27.2351H10.3613L1.06445 24.7478L1.05859 24.7458L0.939453 24.7048C0.674993 24.5874 0.501953 24.325 0.501953 24.0281V19.0642C0.502161 18.6046 0.912605 18.2608 1.35352 18.324L1.44238 18.3416C5.70009 19.4826 10.5334 20.7755 13.5684 21.5867H13.5693C14.8827 21.9361 15.8256 20.3231 14.8545 19.3562H14.8535L0.719727 5.24585C0.578074 5.10108 0.500025 4.91134 0.5 4.71558C0.5 2.43324 2.35501 0.579834 4.64453 0.579834C4.84199 0.579898 5.03572 0.659811 5.17773 0.800537L19.3105 14.9119C20.2724 15.8722 21.8965 14.9451 21.541 13.6238L18.2939 1.52026V1.51929C18.1673 1.0489 18.5236 0.580108 19.0195 0.579834Z" stroke="#1A1A1A" stroke-miterlimit="10"/>
+  <path d="M38.7817 0.5H33.813C33.4744 0.500195 33.1772 0.726888 33.0874 1.05371V1.05469L30.5962 10.3359V10.3369C30.4847 10.7572 30.4706 11.1961 30.5542 11.6211L30.5962 11.8027L32.3833 18.4639C33.2607 21.7298 35.7623 24.3033 38.9858 25.2803L39.3003 25.3701L45.9731 27.1553C46.4543 27.2824 46.9598 27.2826 47.4409 27.1553H47.4399L56.7368 24.668L56.7427 24.666L56.8618 24.625C57.1263 24.5076 57.2993 24.2451 57.2993 23.9482V18.9844C57.2991 18.5248 56.8887 18.181 56.4478 18.2441L56.3589 18.2617C52.1012 19.4028 47.2678 20.6957 44.2329 21.5068H44.2319C42.9186 21.8563 41.9757 20.2433 42.9468 19.2764H42.9478L57.0815 5.16602C57.2232 5.02125 57.3012 4.83151 57.3013 4.63574C57.3013 2.35341 55.4463 0.5 53.1567 0.5C52.9593 0.500065 52.7655 0.579977 52.6235 0.720703L38.4907 14.832C37.5289 15.7924 35.9048 14.8653 36.2603 13.5439L39.5073 1.44043V1.43945C39.6339 0.969069 39.2777 0.500274 38.7817 0.5Z" stroke="#1A1A1A" stroke-miterlimit="10"/>
+  <path d="M38.7817 57.251H33.813C33.4744 57.2508 33.1772 57.0241 33.0874 56.6973V56.6963L30.5962 47.415V47.4141C30.4847 46.9938 30.4706 46.5549 30.5542 46.1299L30.5962 45.9482L32.3833 39.2871C33.2607 36.0212 35.7623 33.4477 38.9858 32.4707L39.3003 32.3809L45.9731 30.5957C46.4543 30.4686 46.9598 30.4684 47.4409 30.5957H47.4399L56.7368 33.083L56.7427 33.085L56.8618 33.126C57.1263 33.2434 57.2993 33.5058 57.2993 33.8027V38.7666C57.2991 39.2262 56.8887 39.57 56.4478 39.5068L56.3589 39.4893C52.1012 38.3482 47.2678 37.0553 44.2329 36.2441H44.2319C42.9186 35.8947 41.9757 37.5077 42.9468 38.4746H42.9478L57.0815 52.585C57.2232 52.7297 57.3012 52.9195 57.3013 53.1152C57.3013 55.3976 55.4463 57.251 53.1567 57.251C52.9593 57.2509 52.7655 57.171 52.6235 57.0303L38.4907 42.9189C37.5289 41.9586 35.9048 42.8857 36.2603 44.207L39.5073 56.3105V56.3115C39.6339 56.7819 39.2777 57.2507 38.7817 57.251Z" stroke="#1A1A1A" stroke-miterlimit="10"/>
+  <path d="M19.0195 57.251H23.9883C24.3268 57.2508 24.624 57.0241 24.7139 56.6973V56.6963L27.2051 47.415V47.4141C27.3166 46.9938 27.3307 46.5549 27.2471 46.1299L27.2051 45.9482L25.418 39.2871C24.5406 36.0212 22.039 33.4477 18.8154 32.4707L18.501 32.3809L11.8281 30.5957C11.347 30.4686 10.8415 30.4684 10.3604 30.5957H10.3613L1.06445 33.083L1.05859 33.085L0.939453 33.126C0.674993 33.2434 0.501953 33.5058 0.501953 33.8027V38.7666C0.502161 39.2262 0.912605 39.57 1.35352 39.5068L1.44238 39.4893C5.70009 38.3482 10.5334 37.0553 13.5684 36.2441H13.5693C14.8827 35.8947 15.8256 37.5077 14.8545 38.4746H14.8535L0.719727 52.585C0.578074 52.7297 0.500025 52.9195 0.5 53.1152C0.5 55.3976 2.35501 57.251 4.64453 57.251C4.84199 57.2509 5.03572 57.171 5.17773 57.0303L19.3105 42.9189C20.2724 41.9586 21.8965 42.8857 21.541 44.207L18.2939 56.3105V56.3115C18.1673 56.7819 18.5236 57.2507 19.0195 57.251Z" stroke="#1A1A1A" stroke-miterlimit="10"/>
+</svg>`;
+
+                this.geometricSVG = `<svg xmlns="http://www.w3.org/2000/svg" width="71" height="50" viewBox="0 0 71 50" fill="none">
+  <path d="M18.5887 7.72406e-06C20.7109 -0.00224775 22.8048 0.489487 24.7059 1.43663C26.6071 2.38376 28.264 3.76054 29.5464 5.45891L29.7614 5.22287C32.0343 2.95501 35.1328 1.56113 38.5443 1.56113C43.241 1.56113 47.3103 4.18577 49.502 8.09541C51.447 7.22069 53.5542 6.76896 55.6854 6.76987C64.1384 6.76987 71 13.7247 71 22.3059C71 30.8875 64.1384 37.8414 55.6854 37.8414C54.6524 37.8414 53.6452 37.7366 52.659 37.5398C50.7414 40.9773 47.0758 43.3131 42.9012 43.3131C41.2016 43.3163 39.5239 42.9285 37.9967 42.1794C36.0528 46.772 31.5266 49.9995 26.2565 50C20.7513 50 16.0818 46.5091 14.2812 41.602C13.4799 41.7722 12.6631 41.8577 11.8441 41.8572C5.29602 41.8577 0 36.4512 0 29.8121C0 25.3511 2.38443 21.4665 5.92253 19.3673C5.17189 17.6279 4.78553 15.7521 4.78747 13.8564C4.78747 6.1939 10.9709 7.72406e-06 18.5887 7.72406e-06Z" fill="white"/>
+</svg>`;
+                
+                this.init();
+            }
+
+            init() {
+                this.setupControls();
+                this.setupFileInput();
+                this.setupMouseTracking();
+                this.loadSVG(this.defaultSVG);
+                this.animate();
+            }
+
+            setupControls() {
+                const controls = ['pathDensity', 'pointSize', 'lineWeight', 'animationSpeed', 'outlineOpacity'];
+                
+                controls.forEach(controlName => {
+                    const element = document.getElementById(controlName);
+                    const valueElement = document.getElementById(controlName + 'Value');
+                    
+                    if (element && valueElement) {
+                        element.addEventListener('input', (e) => {
+                            const value = parseFloat(e.target.value);
+                            this[controlName] = value;
+                            valueElement.textContent = value;
+                            
+                            if (controlName === 'pathDensity' && !this.isMorphing) {
+                                this.extractPointsFromPaths();
+                            }
+                        });
+                        
+                        valueElement.textContent = element.value;
+                    }
+                });
+            }
+
+            setupFileInput() {
+                const fileInput = document.getElementById('svgFile');
+                if (fileInput) {
+                    fileInput.addEventListener('change', (e) => {
+                        const file = e.target.files[0];
+                        if (file && file.type === 'image/svg+xml') {
+                            const reader = new FileReader();
+                            reader.onload = (e) => {
+                                this.loadSVG(e.target.result);
+                            };
+                            reader.readAsText(file);
+                        }
+                    });
+                }
+            }
+
+            setupMouseTracking() {
+                const container = document.querySelector('.canvas-container');
+                if (container) {
+                    container.addEventListener('mousemove', (e) => {
+                        const rect = container.getBoundingClientRect();
+                        const centerX = rect.width / 2;
+                        const centerY = rect.height / 2;
+                        
+                        // Calculate mouse position relative to center
+                        const mouseX = e.clientX - rect.left - centerX;
+                        const mouseY = e.clientY - rect.top - centerY;
+                        
+                        // Calculate rotation angles (limited range)
+                        const maxRotation = 15; // degrees
+                        const rotateX = -(mouseY / centerY) * maxRotation;
+                        const rotateY = (mouseX / centerX) * maxRotation;
+                        
+                        // Apply 3D transform directly to canvas
+                        this.canvas.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) translateZ(20px)`;
+                    });
+                    
+                    // Reset transform when mouse leaves
+                    container.addEventListener('mouseleave', () => {
+                        this.canvas.style.transform = 'perspective(1000px) rotateX(0deg) rotateY(0deg) translateZ(0px)';
+                    });
+                }
+            }
+
+            easeInOutSine(t) {
+                return -(Math.cos(Math.PI * t) - 1) / 2;
+            }
+
+            easeOutCubic(t) {
+                return 1 - Math.pow(1 - t, 3);
+            }
+
+            easeInCubic(t) {
+                return t * t * t;
+            }
+
+            loadSVG(svgString) {
+                try {
+                    const parser = new DOMParser();
+                    const svgDoc = parser.parseFromString(svgString, 'image/svg+xml');
+                    const svgElement = svgDoc.querySelector('svg');
+                    
+                    if (svgElement) {
+                        const viewBox = svgElement.getAttribute('viewBox');
+                        if (viewBox) {
+                            const [x, y, width, height] = viewBox.split(' ').map(Number);
+                            this.svgBounds = { x, y, width, height };
+                        } else {
+                            this.svgBounds = { x: 0, y: 0, width: 100, height: 100 };
+                        }
+                        
+                        this.svgPaths = Array.from(svgElement.querySelectorAll('path')).map(path => ({
+                            d: path.getAttribute('d')
+                        }));
+                        
+                        this.extractPointsFromPaths();
+                    }
+                } catch (error) {
+                    console.error('Error loading SVG:', error);
+                }
+            }
+
+            extractPointsFromPaths() {
+                this.points = [];
+                if (!this.svgPaths.length || !this.svgBounds) return;
+
+                const scale = Math.min(this.canvas.width, this.canvas.height) * 0.6;
+                const scaleX = scale / this.svgBounds.width;
+                const scaleY = scale / this.svgBounds.height;
+                const finalScale = Math.min(scaleX, scaleY);
+
+                // Reduce the number of stars and make placement more random
+                const totalPointsNeeded = Math.max(8, Math.floor(this.pathDensity * 0.3)); // 30% of original density
+                let collectedPoints = [];
+
+                this.svgPaths.forEach(pathData => {
+                    if (pathData.d) {
+                        const pathPoints = this.samplePointsAlongPath(pathData.d, finalScale, totalPointsNeeded * 3); // Sample more points for randomness
+                        collectedPoints.push(...pathPoints);
+                    }
+                });
+
+                if (collectedPoints.length >= totalPointsNeeded) {
+                    // Randomly select points instead of systematic placement
+                    const shuffled = [...collectedPoints].sort(() => Math.random() - 0.5);
+                    this.points = shuffled.slice(0, totalPointsNeeded);
+                } else {
+                    this.points = [...collectedPoints];
+                    
+                    // Add some random points around the path area for more variety
+                    while (this.points.length < totalPointsNeeded) {
+                        this.svgPaths.forEach(pathData => {
+                            if (pathData.d && this.points.length < totalPointsNeeded) {
+                                const extraPoints = this.samplePointsAlongPath(pathData.d, finalScale, 3);
+                                this.points.push(...extraPoints);
+                            }
+                        });
+                        
+                        // Add some completely random points near the path
+                        if (this.points.length < totalPointsNeeded) {
+                            const randomPoint = this.getRandomPointNearPath(finalScale);
+                            if (randomPoint) {
+                                this.points.push(randomPoint);
+                            }
+                        }
+                        
+                        if (this.points.length >= totalPointsNeeded * 2) break;
+                    }
+                    
+                    this.points = this.points.slice(0, totalPointsNeeded);
+                }
+
+                this.initializeStarTwinkles();
+
+                const pointInfoElement = document.getElementById('pointInfo');
+                if (pointInfoElement) {
+                    pointInfoElement.textContent = `Stars: ${this.points.length}`;
+                }
+            }
+
+            initializeStarTwinkles() {
+                this.starTwinkles = this.points.map((point, index) => ({
+                    phase: Math.random() * Math.PI * 2,
+                    speed: 0.8 + Math.random() * 0.4,
+                    intensity: 0.6 + Math.random() * 0.4,
+                    sizeVariation: 0.3 + Math.random() * 0.4,
+                    flickerChance: Math.random() * 0.02,
+                    nextFlicker: Math.random() * 300 + 200
+                }));
+            }
+
+            initializeBackgroundStars() {
+                this.backgroundStars = [];
+                const numBackgroundStars = 200; // Number of background stars
+                
+                for (let i = 0; i < numBackgroundStars; i++) {
+                    this.backgroundStars.push({
+                        x: Math.random() * this.canvas.width,
+                        y: Math.random() * this.canvas.height,
+                        size: 0.5 + Math.random() * 2,
+                        brightness: 0.3 + Math.random() * 0.7,
+                        twinklePhase: Math.random() * Math.PI * 2,
+                        twinkleSpeed: 0.5 + Math.random() * 1,
+                        color: Math.random() > 0.8 ? 'blue' : 'white' // 20% chance of blue stars
+                    });
+                }
+            }
+
+            samplePointsAlongPath(pathString, scale, maxPoints) {
+                const points = [];
+                const targetPoints = maxPoints || this.pathDensity;
+                
+                const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+                svg.setAttribute('width', '1000');
+                svg.setAttribute('height', '1000');
+                svg.setAttribute('viewBox', `${this.svgBounds.x} ${this.svgBounds.y} ${this.svgBounds.width} ${this.svgBounds.height}`);
+                
+                const pathElement = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                pathElement.setAttribute('d', pathString);
+                pathElement.setAttribute('stroke', 'black');
+                pathElement.setAttribute('stroke-width', '1');
+                pathElement.setAttribute('fill', 'none');
+                
+                svg.appendChild(pathElement);
+                document.body.appendChild(svg);
+                
+                try {
+                    const totalLength = pathElement.getTotalLength();
+                    
+                    for (let i = 0; i < targetPoints; i++) {
+                        const distance = (i / Math.max(1, targetPoints - 1)) * totalLength;
+                        const point = pathElement.getPointAtLength(distance);
+                        
+                        if (point) {
+                            const scaledX = this.centerX + (point.x - this.svgBounds.x - this.svgBounds.width / 2) * scale;
+                            const scaledY = this.centerY + (point.y - this.svgBounds.y - this.svgBounds.height / 2) * scale;
+                            
+                            points.push({
+                                x: scaledX,
+                                y: scaledY,
+                                originalX: point.x,
+                                originalY: point.y
+                            });
+                        }
+                    }
+                } catch (error) {
+                    console.warn('Could not use getPointAtLength:', error);
+                } finally {
+                    document.body.removeChild(svg);
+                }
+
+                return points;
+            }
+
+            getRandomPointNearPath(scale) {
+                if (!this.svgBounds) return null;
+                
+                // Get a random point from one of the paths
+                const randomPathIndex = Math.floor(Math.random() * this.svgPaths.length);
+                const pathData = this.svgPaths[randomPathIndex];
+                
+                if (!pathData || !pathData.d) return null;
+                
+                const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+                svg.setAttribute('width', '1000');
+                svg.setAttribute('height', '1000');
+                svg.setAttribute('viewBox', `${this.svgBounds.x} ${this.svgBounds.y} ${this.svgBounds.width} ${this.svgBounds.height}`);
+                
+                const pathElement = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                pathElement.setAttribute('d', pathData.d);
+                pathElement.setAttribute('stroke', 'black');
+                pathElement.setAttribute('stroke-width', '1');
+                pathElement.setAttribute('fill', 'none');
+                
+                svg.appendChild(pathElement);
+                document.body.appendChild(svg);
+                
+                try {
+                    const totalLength = pathElement.getTotalLength();
+                    const randomDistance = Math.random() * totalLength;
+                    const point = pathElement.getPointAtLength(randomDistance);
+                    
+                    if (point) {
+                        // Add some random offset to make it not exactly on the path
+                        const offsetX = (Math.random() - 0.5) * 20 / scale;
+                        const offsetY = (Math.random() - 0.5) * 20 / scale;
+                        
+                        const scaledX = this.centerX + (point.x - this.svgBounds.x - this.svgBounds.width / 2) * scale + offsetX;
+                        const scaledY = this.centerY + (point.y - this.svgBounds.y - this.svgBounds.height / 2) * scale + offsetY;
+                        
+                        return {
+                            x: scaledX,
+                            y: scaledY,
+                            originalX: point.x,
+                            originalY: point.y
+                        };
+                    }
+                } catch (error) {
+                    console.warn('Could not get random point:', error);
+                } finally {
+                    document.body.removeChild(svg);
+                }
+                
+                return null;
+            }
+
+            startMorph() {
+                if (this.isMorphing) return;
+                
+                this.isMorphing = true;
+                this.morphProgress = 0;
+                this.morphStartTime = performance.now();
+                
+                this.transitionData.oldPaths = [...this.svgPaths];
+                this.transitionData.oldBounds = {...this.svgBounds};
+                this.transitionData.oldPoints = [...this.points];
+                
+                this.currentShape = this.currentShape === 0 ? 1 : 0;
+                const newSVG = this.currentShape === 0 ? this.defaultSVG : this.geometricSVG;
+                
+                const parser = new DOMParser();
+                const svgDoc = parser.parseFromString(newSVG, 'image/svg+xml');
+                const svgElement = svgDoc.querySelector('svg');
+                
+                if (svgElement) {
+                    const viewBox = svgElement.getAttribute('viewBox');
+                    if (viewBox) {
+                        const [x, y, width, height] = viewBox.split(' ').map(Number);
+                        this.transitionData.newBounds = { x, y, width, height };
+                        
+                        this.transitionData.newPaths = Array.from(svgElement.querySelectorAll('path')).map(path => ({
+                            d: path.getAttribute('d')
+                        }));
+                        
+                        this.transitionData.newPoints = this.calculatePointsForSVG(
+                            this.transitionData.newPaths,
+                            this.transitionData.newBounds
+                        );
+                    }
+                }
+            }
+
+            calculatePointsForSVG(paths, bounds) {
+                const points = [];
+                const scale = Math.min(this.canvas.width, this.canvas.height) * 0.6;
+                const scaleX = scale / bounds.width;
+                const scaleY = scale / bounds.height;
+                const finalScale = Math.min(scaleX, scaleY);
+
+                let collectedPoints = [];
+
+                paths.forEach(pathData => {
+                    if (pathData.d) {
+                        const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+                        svg.setAttribute('width', '1000');
+                        svg.setAttribute('height', '1000');
+                        svg.setAttribute('viewBox', `${bounds.x} ${bounds.y} ${bounds.width} ${bounds.height}`);
+                        
+                        const pathElement = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                        pathElement.setAttribute('d', pathData.d);
+                        pathElement.setAttribute('stroke', 'black');
+                        pathElement.setAttribute('stroke-width', '1');
+                        pathElement.setAttribute('fill', 'none');
+                        
+                        svg.appendChild(pathElement);
+                        document.body.appendChild(svg);
+                        
+                        try {
+                            const totalLength = pathElement.getTotalLength();
+                            
+                            for (let i = 0; i < this.pathDensity; i++) {
+                                const distance = (i / Math.max(1, this.pathDensity - 1)) * totalLength;
+                                const point = pathElement.getPointAtLength(distance);
+                                
+                                if (point) {
+                                    const scaledX = this.centerX + (point.x - bounds.x - bounds.width / 2) * finalScale;
+                                    const scaledY = this.centerY + (point.y - bounds.y - bounds.height / 2) * finalScale;
+                                    
+                                    collectedPoints.push({
+                                        x: scaledX,
+                                        y: scaledY,
+                                        originalX: point.x,
+                                        originalY: point.y
+                                    });
+                                }
+                            }
+                        } catch (error) {
+                            console.warn('Could not use getPointAtLength:', error);
+                        } finally {
+                            document.body.removeChild(svg);
+                        }
+                    }
+                });
+
+                if (collectedPoints.length >= this.pathDensity) {
+                    const step = collectedPoints.length / this.pathDensity;
+                    for (let i = 0; i < this.pathDensity; i++) {
+                        const index = Math.floor(i * step);
+                        points.push(collectedPoints[index]);
+                    }
+                } else {
+                    points.push(...collectedPoints);
+                }
+
+                return points.slice(0, this.pathDensity);
+            }
+
+            updateMorph() {
+                if (!this.isMorphing) return;
+                
+                const currentTime = performance.now();
+                const elapsed = currentTime - this.morphStartTime;
+                this.morphProgress = Math.min(1, elapsed / this.morphDuration);
+                
+                if (this.morphProgress >= 1) {
+                    this.morphProgress = 1;
+                    this.isMorphing = false;
+                    
+                    this.svgPaths = [...this.transitionData.newPaths];
+                    this.svgBounds = {...this.transitionData.newBounds};
+                    this.points = [...this.transitionData.newPoints];
+                    
+                    this.transitionData = {
+                        oldPaths: [],
+                        oldBounds: null,
+                        oldPoints: [],
+                        newPaths: [],
+                        newBounds: null,
+                        newPoints: []
+                    };
+                }
+            }
+
+            draw() {
+                this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+                
+                // Draw background stars first
+                this.drawBackgroundStars();
+                
+                if (!this.isMorphing) {
+                    this.drawSVGOutline(this.svgPaths, this.svgBounds, this.outlineOpacity);
+                    this.drawStarsArray(this.points, 1);
+                } else {
+                    const progress = this.easeInOutSine(this.morphProgress);
+                    
+                    if (progress < 0.25) {
+                        const dotFade = 1 - (progress / 0.25);
+                        this.drawStarsArray(this.transitionData.oldPoints, dotFade);
+                        this.drawSVGOutline(this.transitionData.oldPaths, this.transitionData.oldBounds, this.outlineOpacity);
+                    }
+                    
+                    if (progress >= 0.25 && progress < 0.5) {
+                        const drawOutProgress = (progress - 0.25) / 0.25;
+                        this.drawSVGOutlineWithDrawing(
+                            this.transitionData.oldPaths,
+                            this.transitionData.oldBounds,
+                            this.outlineOpacity,
+                            drawOutProgress,
+                            true
+                        );
+                    }
+                    
+                    if (progress >= 0.5 && progress < 0.75) {
+                        const drawInProgress = (progress - 0.5) / 0.25;
+                        this.drawSVGOutlineWithDrawing(
+                            this.transitionData.newPaths,
+                            this.transitionData.newBounds,
+                            this.outlineOpacity,
+                            drawInProgress,
+                            false
+                        );
+                    }
+                    
+                    if (progress >= 0.75) {
+                        const dotFade = (progress - 0.75) / 0.25;
+                        this.drawStarsArray(this.transitionData.newPoints, dotFade);
+                        this.drawSVGOutline(this.transitionData.newPaths, this.transitionData.newBounds, this.outlineOpacity);
+                    }
+                }
+            }
+
+            drawSVGOutline(paths, bounds, opacity) {
+                if (!paths || !paths.length || !bounds) return;
+                
+                const scale = Math.min(this.canvas.width, this.canvas.height) * 0.6;
+                const scaleX = scale / bounds.width;
+                const scaleY = scale / bounds.height;
+                const finalScale = Math.min(scaleX, scaleY);
+                
+                this.ctx.save();
+                this.ctx.translate(this.centerX, this.centerY);
+                this.ctx.scale(finalScale, finalScale);
+                this.ctx.translate(-bounds.x - bounds.width / 2, -bounds.y - bounds.height / 2);
+                
+                this.ctx.globalAlpha = opacity;
+                this.ctx.fillStyle = '#ffffff';
+                
+                paths.forEach((pathData, pathIndex) => {
+                    if (pathData.d) {
+                        this.drawAnimatedDottedPath(pathData.d, finalScale, pathIndex);
+                    }
+                });
+                
+                this.ctx.restore();
+            }
+
+            drawSVGOutlineWithDrawing(paths, bounds, opacity, progress, isDrawingOut) {
+                if (!paths || !paths.length || !bounds) return;
+                
+                const scale = Math.min(this.canvas.width, this.canvas.height) * 0.6;
+                const scaleX = scale / bounds.width;
+                const scaleY = scale / bounds.height;
+                const finalScale = Math.min(scaleX, scaleY);
+                
+                this.ctx.save();
+                this.ctx.translate(this.centerX, this.centerY);
+                this.ctx.scale(finalScale, finalScale);
+                this.ctx.translate(-bounds.x - bounds.width / 2, -bounds.y - bounds.height / 2);
+                
+                this.ctx.globalAlpha = opacity;
+                this.ctx.fillStyle = '#ffffff';
+                
+                paths.forEach((pathData, pathIndex) => {
+                    if (pathData.d) {
+                        this.drawPathLineAnimation(pathData.d, finalScale, pathIndex, progress, isDrawingOut);
+                    }
+                });
+                
+                this.ctx.restore();
+            }
+
+            drawAnimatedDottedPath(pathString, scale, pathIndex) {
+                const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+                const pathElement = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                pathElement.setAttribute('d', pathString);
+                svg.appendChild(pathElement);
+                document.body.appendChild(svg);
+                
+                try {
+                    const totalLength = pathElement.getTotalLength();
+                    const dashLength = 100 / scale;
+                    const dashGap = 50 / scale;
+                    const dashWidth = this.lineWeight / scale;
+                    
+                    const animationSpeed = this.animationSpeed * 2;
+                    const offset = (this.animationOffset * animationSpeed + pathIndex * Math.PI) % (dashLength + dashGap);
+                    
+                    // Create a path that follows the SVG path exactly
+                    this.ctx.lineWidth = dashWidth;
+                    this.ctx.strokeStyle = '#ffffff';
+                    this.ctx.setLineDash([dashLength, dashGap]);
+                    this.ctx.lineDashOffset = -offset;
+                    
+                    this.ctx.beginPath();
+                    
+                    // Sample points along the path to create a smooth line
+                    const numPoints = Math.max(100, Math.floor(totalLength / 2));
+                    for (let i = 0; i <= numPoints; i++) {
+                        const distance = (i / numPoints) * totalLength;
+                        try {
+                            const point = pathElement.getPointAtLength(distance);
+                            if (point) {
+                                if (i === 0) {
+                                    this.ctx.moveTo(point.x, point.y);
+                                } else {
+                                    this.ctx.lineTo(point.x, point.y);
+                                }
+                            }
+                        } catch (e) {
+                            continue;
+                        }
+                    }
+                    
+                    this.ctx.stroke();
+                    this.ctx.setLineDash([]); // Reset line dash
+                    
+                } catch (error) {
+                    console.warn('Error drawing path:', error);
+                } finally {
+                    document.body.removeChild(svg);
+                }
+            }
+
+            drawPathLineAnimation(pathString, scale, pathIndex, progress, isDrawingOut) {
+                const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+                const pathElement = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                pathElement.setAttribute('d', pathString);
+                svg.appendChild(pathElement);
+                document.body.appendChild(svg);
+                
+                try {
+                    const totalLength = pathElement.getTotalLength();
+                    const dashLength = 100 / scale;
+                    const dashGap = 50 / scale;
+                    const dashWidth = this.lineWeight / scale;
+                    
+                    if (isDrawingOut) {
+                        const remainingLength = totalLength * (1 - progress);
+                        const center = totalLength / 2;
+                        const halfLength = remainingLength / 2;
+                        
+                        // Create a path that follows the SVG path exactly
+                        this.ctx.lineWidth = dashWidth;
+                        this.ctx.strokeStyle = '#ffffff';
+                        this.ctx.setLineDash([dashLength, dashGap]);
+                        
+                        this.ctx.beginPath();
+                        
+                        // Sample points along the visible portion of the path
+                        const numPoints = Math.max(100, Math.floor(remainingLength / 2));
+                        for (let i = 0; i <= numPoints; i++) {
+                            const distance = center - halfLength + (i / numPoints) * remainingLength;
+                            if (distance >= 0 && distance <= totalLength) {
+                                try {
+                                    const point = pathElement.getPointAtLength(distance);
+                                    if (point) {
+                                        if (i === 0) {
+                                            this.ctx.moveTo(point.x, point.y);
+                                        } else {
+                                            this.ctx.lineTo(point.x, point.y);
+                                        }
+                                    }
+                                } catch (e) {
+                                    continue;
+                                }
+                            }
+                        }
+                        
+                        this.ctx.stroke();
+                        
+                    } else {
+                        const currentLength = totalLength * progress;
+                        const center = totalLength / 2;
+                        const halfLength = currentLength / 2;
+                        
+                        // Create a path that follows the SVG path exactly
+                        this.ctx.lineWidth = dashWidth;
+                        this.ctx.strokeStyle = '#ffffff';
+                        this.ctx.setLineDash([dashLength, dashGap]);
+                        
+                        this.ctx.beginPath();
+                        
+                        // Sample points along the visible portion of the path
+                        const numPoints = Math.max(100, Math.floor(currentLength / 2));
+                        for (let i = 0; i <= numPoints; i++) {
+                            const distance = center - halfLength + (i / numPoints) * currentLength;
+                            if (distance >= 0 && distance <= totalLength) {
+                                try {
+                                    const point = pathElement.getPointAtLength(distance);
+                                    if (point) {
+                                        if (i === 0) {
+                                            this.ctx.moveTo(point.x, point.y);
+                                        } else {
+                                            this.ctx.lineTo(point.x, point.y);
+                                        }
+                                    }
+                                } catch (e) {
+                                    continue;
+                                }
+                            }
+                        }
+                        
+                        this.ctx.stroke();
+                    }
+                    
+                    this.ctx.setLineDash([]); // Reset line dash
+                    
+                } catch (error) {
+                    console.warn('Error drawing path animation:', error);
+                } finally {
+                    document.body.removeChild(svg);
+                }
+            }
+
+            drawStarsArray(pointsArray, opacity) {
+                if (!pointsArray || pointsArray.length === 0) return;
+                
+                pointsArray.forEach((point, index) => {
+                    if (index < this.starTwinkles.length) {
+                        const twinkle = this.starTwinkles[index];
+                        
+                        twinkle.phase += 0.02 * twinkle.speed;
+                        
+                        const primaryTwinkle = Math.sin(twinkle.phase) * twinkle.intensity;
+                        const secondaryTwinkle = Math.sin(twinkle.phase * 1.7 + 1) * 0.3;
+                        const tertiaryTwinkle = Math.sin(twinkle.phase * 0.6 + 2) * 0.2;
+                        const fastTwinkle = Math.sin(twinkle.phase * 3.2) * 0.1;
+                        
+                        const combinedTwinkle = (primaryTwinkle + secondaryTwinkle + tertiaryTwinkle + fastTwinkle) / 3.5;
+                        
+                        let flicker = 1;
+                        twinkle.nextFlicker--;
+                        if (twinkle.nextFlicker <= 0) {
+                            flicker = 0.2 + Math.random() * 0.6;
+                            twinkle.nextFlicker = Math.random() * 500 + 400;
+                        }
+                        
+                        const brightness = Math.max(0.3, 0.65 + combinedTwinkle * 0.35) * flicker * opacity;
+                        const starSize = this.pointSize * (0.7 + combinedTwinkle * twinkle.sizeVariation * 0.5);
+                        
+                        const colorTemp = 0.85 + combinedTwinkle * 0.15;
+                        const red = Math.min(255, 245 * colorTemp);
+                        const green = Math.min(255, 245 * colorTemp);
+                        const blue = 255;
+                        
+                        if (brightness > 0.5) {
+                            this.ctx.globalAlpha = brightness * 0.1 * opacity;
+                            const gradient1 = this.ctx.createRadialGradient(
+                                point.x, point.y, 0,
+                                point.x, point.y, starSize * 4
+                            );
+                            gradient1.addColorStop(0, `rgba(${red}, ${green}, ${blue}, 0.4)`);
+                            gradient1.addColorStop(0.5, `rgba(${red}, ${green}, ${blue}, 0.1)`);
+                            gradient1.addColorStop(1, 'rgba(255, 255, 255, 0)');
+                            this.ctx.fillStyle = gradient1;
+                            this.ctx.beginPath();
+                            this.ctx.arc(point.x, point.y, starSize * 4, 0, Math.PI * 2);
+                            this.ctx.fill();
+                        }
+                        
+                        if (brightness > 0.6) {
+                            this.ctx.globalAlpha = brightness * 0.2 * opacity;
+                            const gradient2 = this.ctx.createRadialGradient(
+                                point.x, point.y, 0,
+                                point.x, point.y, starSize * 2.5
+                            );
+                            gradient2.addColorStop(0, `rgba(${red}, ${green}, ${blue}, 0.6)`);
+                            gradient2.addColorStop(0.6, `rgba(${red}, ${green}, ${blue}, 0.2)`);
+                            gradient2.addColorStop(1, 'rgba(255, 255, 255, 0)');
+                            this.ctx.fillStyle = gradient2;
+                            this.ctx.beginPath();
+                            this.ctx.arc(point.x, point.y, starSize * 2.5, 0, Math.PI * 2);
+                            this.ctx.fill();
+                        }
+                        
+                        this.ctx.globalAlpha = brightness * 0.4 * opacity;
+                        const gradient3 = this.ctx.createRadialGradient(
+                            point.x, point.y, 0,
+                            point.x, point.y, starSize * 1.5
+                        );
+                        gradient3.addColorStop(0, `rgba(255, 255, 255, 0.9)`);
+                        gradient3.addColorStop(0.5, `rgba(${red}, ${green}, ${blue}, 0.5)`);
+                        gradient3.addColorStop(1, 'rgba(255, 255, 255, 0)');
+                        this.ctx.fillStyle = gradient3;
+                        this.ctx.beginPath();
+                        this.ctx.arc(point.x, point.y, starSize * 1.5, 0, Math.PI * 2);
+                        this.ctx.fill();
+                        
+                        this.ctx.globalAlpha = brightness;
+                        this.ctx.fillStyle = `rgb(${Math.floor(red)}, ${Math.floor(green)}, ${blue})`;
+                        this.ctx.beginPath();
+                        this.ctx.arc(point.x, point.y, starSize, 0, Math.PI * 2);
+                        this.ctx.fill();
+                        
+                        this.ctx.globalAlpha = Math.min(1, brightness * 1.2);
+                        this.ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+                        this.ctx.beginPath();
+                        this.ctx.arc(point.x, point.y, starSize * 0.3, 0, Math.PI * 2);
+                        this.ctx.fill();
+                    }
+                });
+            }
+
+            animate() {
+                this.animating = true;
+                this.animationOffset += this.animationSpeed;
+                this.twinkleOffset += 0.015;
+                
+                if (this.isMorphing) {
+                    this.updateMorph();
+                }
+                
+                this.draw();
+                requestAnimationFrame(() => this.animate());
+            }
+        }
+
+        function loadSVGFromText() {
+            if (starMapInstance) {
+                const svgTextElement = document.getElementById('svgText');
+                if (svgTextElement) {
+                    const svgText = svgTextElement.value.trim();
+                    if (svgText) {
+                        starMapInstance.loadSVG(svgText);
+                    }
+                }
+            }
+        }
+
+        function resetToDefault() {
+            if (starMapInstance) {
+                starMapInstance.currentShape = 0;
+                starMapInstance.isMorphing = false;
+                starMapInstance.loadSVG(starMapInstance.defaultSVG);
+                const svgTextElement = document.getElementById('svgText');
+                const svgFileElement = document.getElementById('svgFile');
+                if (svgTextElement) svgTextElement.value = '';
+                if (svgFileElement) svgFileElement.value = '';
+            }
+        }
+
+        function toggleShape() {
+            if (starMapInstance && !starMapInstance.isMorphing) {
+                starMapInstance.startMorph();
+            }
+        }
+
+        starMapInstance = new StarMapGenerator();
+    </script>
+</body>
+</html>
