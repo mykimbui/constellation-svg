@@ -158,6 +158,9 @@
             transform-style: preserve-3d;
             transition: transform 0.1s ease-out;
             pointer-events: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
         .svg-section {
@@ -255,6 +258,8 @@
             constructor() {
                 this.canvas = document.getElementById('starCanvas');
                 this.ctx = this.canvas.getContext('2d');
+                this.svgCanvas = document.getElementById('svgCanvas');
+                this.svgCtx = this.svgCanvas.getContext('2d');
                 this.centerX = this.canvas.width / 2;
                 this.centerY = this.canvas.height / 2;
                 
@@ -374,13 +379,19 @@
                         const rotateX = -(mouseY / centerY) * maxRotation;
                         const rotateY = (mouseX / centerX) * maxRotation;
                         
-                        // Apply 3D transform directly to canvas
-                        this.canvas.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) translateZ(20px)`;
+                        // Apply 3D transform to SVG layer only
+                        const svgLayer = document.querySelector('.svg-layer');
+                        if (svgLayer) {
+                            svgLayer.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) translateZ(20px)`;
+                        }
                     });
                     
                     // Reset transform when mouse leaves
                     container.addEventListener('mouseleave', () => {
-                        this.canvas.style.transform = 'perspective(1000px) rotateX(0deg) rotateY(0deg) translateZ(0px)';
+                        const svgLayer = document.querySelector('.svg-layer');
+                        if (svgLayer) {
+                            svgLayer.style.transform = 'perspective(1000px) rotateX(0deg) rotateY(0deg) translateZ(0px)';
+                        }
                     });
                 }
             }
@@ -785,9 +796,11 @@
             }
 
             draw() {
+                // Clear both canvases
                 this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+                this.svgCtx.clearRect(0, 0, this.svgCanvas.width, this.svgCanvas.height);
                 
-                // Draw background stars first
+                // Draw background stars on main canvas (static)
                 this.drawBackgroundStars();
                 
                 if (!this.isMorphing) {
@@ -835,18 +848,18 @@
             drawSVGOutline(paths, bounds, opacity) {
                 if (!paths || !paths.length || !bounds) return;
                 
-                const scale = Math.min(this.canvas.width, this.canvas.height) * 0.6;
+                const scale = Math.min(this.svgCanvas.width, this.svgCanvas.height) * 0.6;
                 const scaleX = scale / bounds.width;
                 const scaleY = scale / bounds.height;
                 const finalScale = Math.min(scaleX, scaleY);
                 
-                this.ctx.save();
-                this.ctx.translate(this.centerX, this.centerY);
-                this.ctx.scale(finalScale, finalScale);
-                this.ctx.translate(-bounds.x - bounds.width / 2, -bounds.y - bounds.height / 2);
+                this.svgCtx.save();
+                this.svgCtx.translate(this.centerX, this.centerY);
+                this.svgCtx.scale(finalScale, finalScale);
+                this.svgCtx.translate(-bounds.x - bounds.width / 2, -bounds.y - bounds.height / 2);
                 
-                this.ctx.globalAlpha = opacity;
-                this.ctx.fillStyle = '#ffffff';
+                this.svgCtx.globalAlpha = opacity;
+                this.svgCtx.fillStyle = '#ffffff';
                 
                 paths.forEach((pathData, pathIndex) => {
                     if (pathData.d) {
@@ -854,24 +867,24 @@
                     }
                 });
                 
-                this.ctx.restore();
+                this.svgCtx.restore();
             }
 
             drawSVGOutlineWithDrawing(paths, bounds, opacity, progress, isDrawingOut) {
                 if (!paths || !paths.length || !bounds) return;
                 
-                const scale = Math.min(this.canvas.width, this.canvas.height) * 0.6;
+                const scale = Math.min(this.svgCanvas.width, this.svgCanvas.height) * 0.6;
                 const scaleX = scale / bounds.width;
                 const scaleY = scale / bounds.height;
                 const finalScale = Math.min(scaleX, scaleY);
                 
-                this.ctx.save();
-                this.ctx.translate(this.centerX, this.centerY);
-                this.ctx.scale(finalScale, finalScale);
-                this.ctx.translate(-bounds.x - bounds.width / 2, -bounds.y - bounds.height / 2);
+                this.svgCtx.save();
+                this.svgCtx.translate(this.centerX, this.centerY);
+                this.svgCtx.scale(finalScale, finalScale);
+                this.svgCtx.translate(-bounds.x - bounds.width / 2, -bounds.y - bounds.height / 2);
                 
-                this.ctx.globalAlpha = opacity;
-                this.ctx.fillStyle = '#ffffff';
+                this.svgCtx.globalAlpha = opacity;
+                this.svgCtx.fillStyle = '#ffffff';
                 
                 paths.forEach((pathData, pathIndex) => {
                     if (pathData.d) {
@@ -879,7 +892,7 @@
                     }
                 });
                 
-                this.ctx.restore();
+                this.svgCtx.restore();
             }
 
             drawAnimatedDottedPath(pathString, scale, pathIndex) {
@@ -899,12 +912,12 @@
                     const offset = (this.animationOffset * animationSpeed + pathIndex * Math.PI) % (dashLength + dashGap);
                     
                     // Create a path that follows the SVG path exactly
-                    this.ctx.lineWidth = dashWidth;
-                    this.ctx.strokeStyle = '#ffffff';
-                    this.ctx.setLineDash([dashLength, dashGap]);
-                    this.ctx.lineDashOffset = -offset;
+                    this.svgCtx.lineWidth = dashWidth;
+                    this.svgCtx.strokeStyle = '#ffffff';
+                    this.svgCtx.setLineDash([dashLength, dashGap]);
+                    this.svgCtx.lineDashOffset = -offset;
                     
-                    this.ctx.beginPath();
+                    this.svgCtx.beginPath();
                     
                     // Sample points along the path to create a smooth line
                     const numPoints = Math.max(100, Math.floor(totalLength / 2));
@@ -914,9 +927,9 @@
                             const point = pathElement.getPointAtLength(distance);
                             if (point) {
                                 if (i === 0) {
-                                    this.ctx.moveTo(point.x, point.y);
+                                    this.svgCtx.moveTo(point.x, point.y);
                                 } else {
-                                    this.ctx.lineTo(point.x, point.y);
+                                    this.svgCtx.lineTo(point.x, point.y);
                                 }
                             }
                         } catch (e) {
@@ -924,8 +937,8 @@
                         }
                     }
                     
-                    this.ctx.stroke();
-                    this.ctx.setLineDash([]); // Reset line dash
+                    this.svgCtx.stroke();
+                    this.svgCtx.setLineDash([]); // Reset line dash
                     
                 } catch (error) {
                     console.warn('Error drawing path:', error);
@@ -953,11 +966,11 @@
                         const halfLength = remainingLength / 2;
                         
                         // Create a path that follows the SVG path exactly
-                        this.ctx.lineWidth = dashWidth;
-                        this.ctx.strokeStyle = '#ffffff';
-                        this.ctx.setLineDash([dashLength, dashGap]);
+                        this.svgCtx.lineWidth = dashWidth;
+                        this.svgCtx.strokeStyle = '#ffffff';
+                        this.svgCtx.setLineDash([dashLength, dashGap]);
                         
-                        this.ctx.beginPath();
+                        this.svgCtx.beginPath();
                         
                         // Sample points along the visible portion of the path
                         const numPoints = Math.max(100, Math.floor(remainingLength / 2));
@@ -968,9 +981,9 @@
                                     const point = pathElement.getPointAtLength(distance);
                                     if (point) {
                                         if (i === 0) {
-                                            this.ctx.moveTo(point.x, point.y);
+                                            this.svgCtx.moveTo(point.x, point.y);
                                         } else {
-                                            this.ctx.lineTo(point.x, point.y);
+                                            this.svgCtx.lineTo(point.x, point.y);
                                         }
                                     }
                                 } catch (e) {
@@ -979,7 +992,7 @@
                             }
                         }
                         
-                        this.ctx.stroke();
+                        this.svgCtx.stroke();
                         
                     } else {
                         const currentLength = totalLength * progress;
@@ -987,11 +1000,11 @@
                         const halfLength = currentLength / 2;
                         
                         // Create a path that follows the SVG path exactly
-                        this.ctx.lineWidth = dashWidth;
-                        this.ctx.strokeStyle = '#ffffff';
-                        this.ctx.setLineDash([dashLength, dashGap]);
+                        this.svgCtx.lineWidth = dashWidth;
+                        this.svgCtx.strokeStyle = '#ffffff';
+                        this.svgCtx.setLineDash([dashLength, dashGap]);
                         
-                        this.ctx.beginPath();
+                        this.svgCtx.beginPath();
                         
                         // Sample points along the visible portion of the path
                         const numPoints = Math.max(100, Math.floor(currentLength / 2));
@@ -1002,9 +1015,9 @@
                                     const point = pathElement.getPointAtLength(distance);
                                     if (point) {
                                         if (i === 0) {
-                                            this.ctx.moveTo(point.x, point.y);
+                                            this.svgCtx.moveTo(point.x, point.y);
                                         } else {
-                                            this.ctx.lineTo(point.x, point.y);
+                                            this.svgCtx.lineTo(point.x, point.y);
                                         }
                                     }
                                 } catch (e) {
@@ -1013,10 +1026,10 @@
                             }
                         }
                         
-                        this.ctx.stroke();
+                        this.svgCtx.stroke();
                     }
                     
-                    this.ctx.setLineDash([]); // Reset line dash
+                    this.svgCtx.setLineDash([]); // Reset line dash
                     
                 } catch (error) {
                     console.warn('Error drawing path animation:', error);
@@ -1057,59 +1070,59 @@
                         const blue = 255;
                         
                         if (brightness > 0.5) {
-                            this.ctx.globalAlpha = brightness * 0.1 * opacity;
-                            const gradient1 = this.ctx.createRadialGradient(
+                            this.svgCtx.globalAlpha = brightness * 0.1 * opacity;
+                            const gradient1 = this.svgCtx.createRadialGradient(
                                 point.x, point.y, 0,
                                 point.x, point.y, starSize * 4
                             );
                             gradient1.addColorStop(0, `rgba(${red}, ${green}, ${blue}, 0.4)`);
                             gradient1.addColorStop(0.5, `rgba(${red}, ${green}, ${blue}, 0.1)`);
                             gradient1.addColorStop(1, 'rgba(255, 255, 255, 0)');
-                            this.ctx.fillStyle = gradient1;
-                            this.ctx.beginPath();
-                            this.ctx.arc(point.x, point.y, starSize * 4, 0, Math.PI * 2);
-                            this.ctx.fill();
+                            this.svgCtx.fillStyle = gradient1;
+                            this.svgCtx.beginPath();
+                            this.svgCtx.arc(point.x, point.y, starSize * 4, 0, Math.PI * 2);
+                            this.svgCtx.fill();
                         }
                         
                         if (brightness > 0.6) {
-                            this.ctx.globalAlpha = brightness * 0.2 * opacity;
-                            const gradient2 = this.ctx.createRadialGradient(
+                            this.svgCtx.globalAlpha = brightness * 0.2 * opacity;
+                            const gradient2 = this.svgCtx.createRadialGradient(
                                 point.x, point.y, 0,
                                 point.x, point.y, starSize * 2.5
                             );
                             gradient2.addColorStop(0, `rgba(${red}, ${green}, ${blue}, 0.6)`);
                             gradient2.addColorStop(0.6, `rgba(${red}, ${green}, ${blue}, 0.2)`);
                             gradient2.addColorStop(1, 'rgba(255, 255, 255, 0)');
-                            this.ctx.fillStyle = gradient2;
-                            this.ctx.beginPath();
-                            this.ctx.arc(point.x, point.y, starSize * 2.5, 0, Math.PI * 2);
-                            this.ctx.fill();
+                            this.svgCtx.fillStyle = gradient2;
+                            this.svgCtx.beginPath();
+                            this.svgCtx.arc(point.x, point.y, starSize * 2.5, 0, Math.PI * 2);
+                            this.svgCtx.fill();
                         }
                         
-                        this.ctx.globalAlpha = brightness * 0.4 * opacity;
-                        const gradient3 = this.ctx.createRadialGradient(
+                        this.svgCtx.globalAlpha = brightness * 0.4 * opacity;
+                        const gradient3 = this.svgCtx.createRadialGradient(
                             point.x, point.y, 0,
                             point.x, point.y, starSize * 1.5
                         );
                         gradient3.addColorStop(0, `rgba(255, 255, 255, 0.9)`);
                         gradient3.addColorStop(0.5, `rgba(${red}, ${green}, ${blue}, 0.5)`);
                         gradient3.addColorStop(1, 'rgba(255, 255, 255, 0)');
-                        this.ctx.fillStyle = gradient3;
-                        this.ctx.beginPath();
-                        this.ctx.arc(point.x, point.y, starSize * 1.5, 0, Math.PI * 2);
-                        this.ctx.fill();
+                        this.svgCtx.fillStyle = gradient3;
+                        this.svgCtx.beginPath();
+                        this.svgCtx.arc(point.x, point.y, starSize * 1.5, 0, Math.PI * 2);
+                        this.svgCtx.fill();
                         
-                        this.ctx.globalAlpha = brightness;
-                        this.ctx.fillStyle = `rgb(${Math.floor(red)}, ${Math.floor(green)}, ${blue})`;
-                        this.ctx.beginPath();
-                        this.ctx.arc(point.x, point.y, starSize, 0, Math.PI * 2);
-                        this.ctx.fill();
+                        this.svgCtx.globalAlpha = brightness;
+                        this.svgCtx.fillStyle = `rgb(${Math.floor(red)}, ${Math.floor(green)}, ${blue})`;
+                        this.svgCtx.beginPath();
+                        this.svgCtx.arc(point.x, point.y, starSize, 0, Math.PI * 2);
+                        this.svgCtx.fill();
                         
-                        this.ctx.globalAlpha = Math.min(1, brightness * 1.2);
-                        this.ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
-                        this.ctx.beginPath();
-                        this.ctx.arc(point.x, point.y, starSize * 0.3, 0, Math.PI * 2);
-                        this.ctx.fill();
+                        this.svgCtx.globalAlpha = Math.min(1, brightness * 1.2);
+                        this.svgCtx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+                        this.svgCtx.beginPath();
+                        this.svgCtx.arc(point.x, point.y, starSize * 0.3, 0, Math.PI * 2);
+                        this.svgCtx.fill();
                     }
                 });
             }
