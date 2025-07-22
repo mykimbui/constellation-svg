@@ -891,6 +891,17 @@
                 this.svgCtx.scale(finalScale, finalScale);
                 this.svgCtx.translate(-bounds.x - bounds.width / 2, -bounds.y - bounds.height / 2);
                 
+                // Draw filled SVG shapes with slight opacity
+                this.svgCtx.globalAlpha = opacity * 0.15; // Very subtle fill
+                this.svgCtx.fillStyle = '#ffffff';
+                
+                paths.forEach((pathData, pathIndex) => {
+                    if (pathData.d) {
+                        this.drawFilledPath(pathData.d);
+                    }
+                });
+                
+                // Draw dashed outline on top
                 this.svgCtx.globalAlpha = opacity;
                 this.svgCtx.fillStyle = '#ffffff';
                 
@@ -916,6 +927,17 @@
                 this.svgCtx.scale(finalScale, finalScale);
                 this.svgCtx.translate(-bounds.x - bounds.width / 2, -bounds.y - bounds.height / 2);
                 
+                // Draw filled SVG shapes with slight opacity
+                this.svgCtx.globalAlpha = opacity * 0.15; // Very subtle fill
+                this.svgCtx.fillStyle = '#ffffff';
+                
+                paths.forEach((pathData, pathIndex) => {
+                    if (pathData.d) {
+                        this.drawFilledPath(pathData.d);
+                    }
+                });
+                
+                // Draw dashed outline on top
                 this.svgCtx.globalAlpha = opacity;
                 this.svgCtx.fillStyle = '#ffffff';
                 
@@ -926,6 +948,46 @@
                 });
                 
                 this.svgCtx.restore();
+            }
+
+            drawFilledPath(pathString) {
+                const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+                const pathElement = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                pathElement.setAttribute('d', pathString);
+                svg.appendChild(pathElement);
+                document.body.appendChild(svg);
+                
+                try {
+                    const totalLength = pathElement.getTotalLength();
+                    
+                    this.svgCtx.beginPath();
+                    
+                    // Sample points along the path to create a smooth filled shape
+                    const numPoints = Math.max(200, Math.floor(totalLength / 1));
+                    for (let i = 0; i <= numPoints; i++) {
+                        const distance = (i / numPoints) * totalLength;
+                        try {
+                            const point = pathElement.getPointAtLength(distance);
+                            if (point) {
+                                if (i === 0) {
+                                    this.svgCtx.moveTo(point.x, point.y);
+                                } else {
+                                    this.svgCtx.lineTo(point.x, point.y);
+                                }
+                            }
+                        } catch (e) {
+                            continue;
+                        }
+                    }
+                    
+                    this.svgCtx.closePath();
+                    this.svgCtx.fill();
+                    
+                } catch (error) {
+                    console.warn('Error drawing filled path:', error);
+                } finally {
+                    document.body.removeChild(svg);
+                }
             }
 
             drawAnimatedDottedPath(pathString, scale, pathIndex) {
