@@ -199,7 +199,7 @@
             <div class="control-group">
                 <label for="pointSize">Star Size</label>
                 <div class="slider-container">
-                    <input type="range" id="pointSize" class="slider" min="1" max="8" value="2" step="0.5">
+                    <input type="range" id="pointSize" class="slider" min="1" max="15" value="8" step="0.5">
                     <div class="value" id="pointSizeValue">2</div>
                 </div>
             </div>
@@ -258,7 +258,16 @@
         </div>
     </div>
 
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/DrawSVGPlugin.min.js"></script>
     <script>
+        // Check if GSAP is loaded
+        if (typeof gsap === 'undefined') {
+            console.error('GSAP not loaded!');
+        } else {
+            console.log('GSAP loaded successfully');
+        }
+        
         let starMapInstance = null;
 
         class StarMapGenerator {
@@ -271,10 +280,10 @@
                 this.centerY = this.canvas.height / 2;
                 
                 this.pathDensity = 65;
-                this.pointSize = 2;
-                this.lineWeight = 1.5;
+                this.pointSize = 8;
+                this.lineWeight = 1;
                 this.animationSpeed = 0.2;
-                this.outlineOpacity = 0.4;
+                this.outlineOpacity = 0.9;
                 
                 this.points = [];
                 this.animationOffset = 0;
@@ -476,47 +485,17 @@
                 const scaleY = scale / this.svgBounds.height;
                 const finalScale = Math.min(scaleX, scaleY);
 
-                // Reduce the number of stars and make placement more random
-                const totalPointsNeeded = Math.max(8, Math.floor(this.pathDensity * 0.3)); // 30% of original density
+                // Collect points at path edges/corners
                 let collectedPoints = [];
 
                 this.svgPaths.forEach(pathData => {
                     if (pathData.d) {
-                        const pathPoints = this.samplePointsAlongPath(pathData.d, finalScale, totalPointsNeeded * 3); // Sample more points for randomness
-                        collectedPoints.push(...pathPoints);
+                        const edgePoints = this.getPathEdgePoints(pathData.d, finalScale);
+                        collectedPoints.push(...edgePoints);
                     }
                 });
 
-                if (collectedPoints.length >= totalPointsNeeded) {
-                    // Randomly select points instead of systematic placement
-                    const shuffled = [...collectedPoints].sort(() => Math.random() - 0.5);
-                    this.points = shuffled.slice(0, totalPointsNeeded);
-                } else {
-                    this.points = [...collectedPoints];
-                    
-                    // Add some random points around the path area for more variety
-                    while (this.points.length < totalPointsNeeded) {
-                        this.svgPaths.forEach(pathData => {
-                            if (pathData.d && this.points.length < totalPointsNeeded) {
-                                const extraPoints = this.samplePointsAlongPath(pathData.d, finalScale, 3);
-                                this.points.push(...extraPoints);
-                            }
-                        });
-                        
-                        // Add some completely random points near the path
-                        if (this.points.length < totalPointsNeeded) {
-                            const randomPoint = this.getRandomPointNearPath(finalScale);
-                            if (randomPoint) {
-                                this.points.push(randomPoint);
-                            }
-                        }
-                        
-                        if (this.points.length >= totalPointsNeeded * 2) break;
-                    }
-                    
-                    this.points = this.points.slice(0, totalPointsNeeded);
-                }
-
+                this.points = collectedPoints;
                 this.initializeStarTwinkles();
 
                 const pointInfoElement = document.getElementById('pointInfo');
@@ -570,7 +549,7 @@
                         
                         // Outer glow (very subtle)
                         this.ctx.globalAlpha = glowBrightness * 0.05;
-                        this.ctx.fillStyle = 'rgba(255, 255, 255, 1)';
+                        this.ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
                         this.ctx.beginPath();
                         this.ctx.arc(star.x, star.y, star.size * star.glowSize * 2, 0, Math.PI * 2);
                         this.ctx.fill();
@@ -647,6 +626,129 @@
                 }
 
                 return points;
+            }
+
+            getPathEdgePoints(pathString, scale) {
+                const points = [];
+                
+                const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+                svg.setAttribute('width', '1000');
+                svg.setAttribute('height', '1000');
+                svg.setAttribute('viewBox', `${this.svgBounds.x} ${this.svgBounds.y} ${this.svgBounds.width} ${this.svgBounds.height}`);
+                
+                const pathElement = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                pathElement.setAttribute('d', pathString);
+                pathElement.setAttribute('stroke', 'black');
+                pathElement.setAttribute('stroke-width', '1');
+                pathElement.setAttribute('fill', 'none');
+                
+                svg.appendChild(pathElement);
+                document.body.appendChild(svg);
+                
+                try {
+                    const totalLength = pathElement.getTotalLength();
+                    
+                    // Get points at regular intervals to find edges/corners
+                    const numSamples = 50;
+                    const pathPoints = [];
+                    
+                    for (let i = 0; i <= numSamples; i++) {
+                        const distance = (i / numSamples) * totalLength;
+                        const point = pathElement.getPointAtLength(distance);
+                        if (point) {
+                            pathPoints.push({
+                                x: point.x,
+                                y: point.y,
+                                distance: distance
+                            });
+                        }
+                    }
+                    
+                    // Find significant direction changes (corners/edges)
+                    const edgePoints = [];
+                    const angleThreshold = 0.3; // radians
+                    
+                    for (let i = 1; i < pathPoints.length - 1; i++) {
+                        const prev = pathPoints[i - 1];
+                        const curr = pathPoints[i];
+                        const next = pathPoints[i + 1];
+                        
+                        // Calculate angles
+                        const angle1 = Math.atan2(curr.y - prev.y, curr.x - prev.x);
+                        const angle2 = Math.atan2(next.y - curr.y, next.x - curr.x);
+                        
+                        // Calculate angle difference
+                        let angleDiff = Math.abs(angle2 - angle1);
+                        if (angleDiff > Math.PI) {
+                            angleDiff = 2 * Math.PI - angleDiff;
+                        }
+                        
+                        // If angle change is significant, it's an edge/corner
+                        if (angleDiff > angleThreshold) {
+                            const scaledX = this.centerX + (curr.x - this.svgBounds.x - this.svgBounds.width / 2) * scale;
+                            const scaledY = this.centerY + (curr.y - this.svgBounds.y - this.svgBounds.height / 2) * scale;
+                            
+                            edgePoints.push({
+                                x: scaledX,
+                                y: scaledY,
+                                originalX: curr.x,
+                                originalY: curr.y,
+                                angle: angleDiff
+                            });
+                        }
+                    }
+                    
+                    // Also add start and end points
+                    if (pathPoints.length > 0) {
+                        const startPoint = pathPoints[0];
+                        const endPoint = pathPoints[pathPoints.length - 1];
+                        
+                        const startScaledX = this.centerX + (startPoint.x - this.svgBounds.x - this.svgBounds.width / 2) * scale;
+                        const startScaledY = this.centerY + (startPoint.y - this.svgBounds.y - this.svgBounds.height / 2) * scale;
+                        
+                        const endScaledX = this.centerX + (endPoint.x - this.svgBounds.x - this.svgBounds.width / 2) * scale;
+                        const endScaledY = this.centerY + (endPoint.y - this.svgBounds.y - this.svgBounds.height / 2) * scale;
+                        
+                        edgePoints.push({
+                            x: startScaledX,
+                            y: startScaledY,
+                            originalX: startPoint.x,
+                            originalY: startPoint.y,
+                            angle: 0
+                        });
+                        
+                        edgePoints.push({
+                            x: endScaledX,
+                            y: endScaledY,
+                            originalX: endPoint.x,
+                            originalY: endPoint.y,
+                            angle: 0
+                        });
+                    }
+                    
+                    // Remove duplicates and limit to reasonable number
+                    const uniquePoints = [];
+                    const usedPositions = new Set();
+                    
+                    edgePoints.forEach(point => {
+                        const key = `${Math.round(point.x)},${Math.round(point.y)}`;
+                        if (!usedPositions.has(key)) {
+                            usedPositions.add(key);
+                            uniquePoints.push(point);
+                        }
+                    });
+                    
+                    // Sort by angle significance and take the most important edges
+                    uniquePoints.sort((a, b) => b.angle - a.angle);
+                    
+                    return uniquePoints.slice(0, Math.min(20, uniquePoints.length));
+                    
+                } catch (error) {
+                    console.warn('Error getting edge points:', error);
+                    return [];
+                } finally {
+                    document.body.removeChild(svg);
+                }
             }
 
             getRandomPointNearPath(scale) {
@@ -881,31 +983,213 @@
             drawSVGOutline(paths, bounds, opacity) {
                 if (!paths || !paths.length || !bounds) return;
                 
+                // Create SVG element with gradient and paths
+                const svgContainer = document.createElement('div');
+                svgContainer.style.position = 'absolute';
+                svgContainer.style.top = '0';
+                svgContainer.style.left = '0';
+                svgContainer.style.width = '100%';
+                svgContainer.style.height = '100%';
+                svgContainer.style.pointerEvents = 'none';
+                
                 const scale = Math.min(this.svgCanvas.width, this.svgCanvas.height) * 0.6;
                 const scaleX = scale / bounds.width;
                 const scaleY = scale / bounds.height;
                 const finalScale = Math.min(scaleX, scaleY);
                 
-                this.svgCtx.save();
-                this.svgCtx.translate(this.centerX, this.centerY);
-                this.svgCtx.scale(finalScale, finalScale);
-                this.svgCtx.translate(-bounds.x - bounds.width / 2, -bounds.y - bounds.height / 2);
+                const svgWidth = bounds.width * finalScale;
+                const svgHeight = bounds.height * finalScale;
                 
-                this.svgCtx.globalAlpha = opacity;
-                this.svgCtx.fillStyle = '#ffffff';
+                const svgElement = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+                svgElement.setAttribute('width', svgWidth);
+                svgElement.setAttribute('height', svgHeight);
+                svgElement.setAttribute('viewBox', `${bounds.x} ${bounds.y} ${bounds.width} ${bounds.height}`);
+                svgElement.style.position = 'absolute';
+                svgElement.style.top = '50%';
+                svgElement.style.left = '50%';
+                svgElement.style.transform = 'translate(-50%, -50%)';
                 
+                // Create gradient definition
+                const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+                const gradient = document.createElementNS('http://www.w3.org/2000/svg', 'linearGradient');
+                gradient.setAttribute('id', 'strokeGradient');
+                gradient.setAttribute('x1', '0%');
+                gradient.setAttribute('y1', '100%');
+                gradient.setAttribute('x2', '100%');
+                gradient.setAttribute('y2', '0%');
+                
+                // Create animated gradient stops
+                const stops = [
+                    { offset: '0%', color: 'rgba(255,255,255,0)' },
+                    { offset: '20%', color: 'rgba(255,255,255,0.2)' },
+                    { offset: '40%', color: 'rgba(255,255,255,0.8)' },
+                    { offset: '50%', color: 'rgba(255,255,255,1)' },
+                    { offset: '60%', color: 'rgba(255,255,255,1)' },
+                    { offset: '80%', color: 'rgba(255,255,255,1)' },
+                    { offset: '100%', color: 'rgba(255,255,255,1)' }
+                ];
+                
+                stops.forEach(stopData => {
+                    const stop = document.createElementNS('http://www.w3.org/2000/svg', 'stop');
+                    stop.setAttribute('offset', stopData.offset);
+                    stop.setAttribute('style', `stop-color:${stopData.color}`);
+                    gradient.appendChild(stop);
+                });
+                
+                defs.appendChild(gradient);
+                svgElement.appendChild(defs);
+                
+                // Create paths with gradient stroke
                 paths.forEach((pathData, pathIndex) => {
                     if (pathData.d) {
-                        this.drawAnimatedDottedPath(pathData.d, finalScale, pathIndex);
+                        const pathElement = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                        pathElement.setAttribute('d', pathData.d);
+                        pathElement.setAttribute('stroke', 'url(#strokeGradient)');
+                        pathElement.setAttribute('stroke-width', this.lineWeight / finalScale);
+                        pathElement.setAttribute('fill', 'none');
+                        pathElement.classList.add('gradient-path');
+                        pathElement.style.opacity = opacity;
+                        
+                        svgElement.appendChild(pathElement);
                     }
                 });
                 
-                this.svgCtx.restore();
+                // Add filled shapes with low opacity
+                paths.forEach((pathData, pathIndex) => {
+                    if (pathData.d) {
+                        const fillPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                        fillPath.setAttribute('d', pathData.d);
+                        fillPath.setAttribute('fill', 'rgba(255,255,255,0.08)');
+                        fillPath.setAttribute('stroke', 'none');
+                        
+                        svgElement.appendChild(fillPath);
+                    }
+                });
+                
+                svgContainer.appendChild(svgElement);
+                
+                // Add to the SVG layer
+                const svgLayer = document.querySelector('.svg-layer');
+                if (svgLayer) {
+                    // Remove any existing SVG containers
+                    const existingContainers = svgLayer.querySelectorAll('.svg-container');
+                    existingContainers.forEach(container => container.remove());
+                    
+                    svgContainer.classList.add('svg-container');
+                    svgLayer.appendChild(svgContainer);
+                }
+                
+                // Animate the gradient paths
+                if (typeof gsap !== 'undefined') {
+                    this.animateGradientPaths();
+                } else {
+                    console.log('GSAP not available, using fallback animation');
+                    this.fallbackAnimation();
+                }
+            }
+
+            animateGradientPaths() {
+                const gradientPaths = document.querySelectorAll('.gradient-path');
+                console.log('Found gradient paths:', gradientPaths.length);
+                
+                const animationSpeed = this.animationSpeed * 2;
+                
+                gradientPaths.forEach((path, index) => {
+                    console.log('Animating path:', index);
+                    
+                    // Reset the path
+                    gsap.set(path, { drawSVG: "0%" });
+                    
+                    // Create the animation
+                    gsap.to(path, {
+                        drawSVG: "100%",
+                        duration: 3 / animationSpeed,
+                        ease: "none",
+                        repeat: -1,
+                        delay: index * 0.3
+                    });
+                });
+                
+                // Animate the gradient movement
+                setTimeout(() => {
+                    this.animateGradientMovement();
+                }, 100);
+            }
+
+            animateGradientMovement() {
+                const gradient = document.querySelector('#strokeGradient');
+                if (!gradient) {
+                    console.log('Gradient not found');
+                    return;
+                }
+                
+                console.log('Starting gradient animation');
+                const animationSpeed = this.animationSpeed * 2;
+                
+                // Simple gradient movement animation
+                gsap.to(gradient, {
+                    attr: {
+                        x1: "100%",
+                        x2: "200%"
+                    },
+                    duration: 3 / animationSpeed,
+                    ease: "none",
+                    repeat: -1,
+                    yoyo: true
+                });
+                
+                // Animate the gradient stops for a pulsing effect
+                const stops = gradient.querySelectorAll('stop');
+                stops.forEach((stop, index) => {
+                    gsap.to(stop, {
+                        attr: {
+                            'stop-color': 'rgba(255,255,255,0.8)'
+                        },
+                        duration: 2 / animationSpeed,
+                        ease: "power2.inOut",
+                        repeat: -1,
+                        yoyo: true,
+                        delay: index * 0.2
+                    });
+                });
+            }
+
+            fallbackAnimation() {
+                // Simple CSS animation fallback
+                const gradientPaths = document.querySelectorAll('.gradient-path');
+                const gradient = document.querySelector('#strokeGradient');
+                
+                if (gradient) {
+                    gradient.style.animation = 'gradientMove 3s ease-in-out infinite';
+                }
+                
+                gradientPaths.forEach((path, index) => {
+                    path.style.animation = `pathDraw 2s ease-in-out infinite ${index * 0.3}s`;
+                });
+                
+                // Add CSS keyframes if they don't exist
+                if (!document.querySelector('#gradient-animations')) {
+                    const style = document.createElement('style');
+                    style.id = 'gradient-animations';
+                    style.textContent = `
+                        @keyframes gradientMove {
+                            0%, 100% { transform: translateX(0%); }
+                            50% { transform: translateX(100%); }
+                        }
+                        @keyframes pathDraw {
+                            0% { stroke-dasharray: 0 1000; }
+                            50% { stroke-dasharray: 500 500; }
+                            100% { stroke-dasharray: 1000 0; }
+                        }
+                    `;
+                    document.head.appendChild(style);
+                }
             }
 
             drawSVGOutlineWithDrawing(paths, bounds, opacity, progress, isDrawingOut) {
                 if (!paths || !paths.length || !bounds) return;
                 
+                // For morphing, we'll use the canvas approach for better control
                 const scale = Math.min(this.svgCanvas.width, this.svgCanvas.height) * 0.6;
                 const scaleX = scale / bounds.width;
                 const scaleY = scale / bounds.height;
@@ -916,6 +1200,17 @@
                 this.svgCtx.scale(finalScale, finalScale);
                 this.svgCtx.translate(-bounds.x - bounds.width / 2, -bounds.y - bounds.height / 2);
                 
+                // Draw filled SVG shapes with very low opacity
+                this.svgCtx.globalAlpha = opacity * 0.08; // Much lower opacity
+                this.svgCtx.fillStyle = '#ffffff';
+                
+                paths.forEach((pathData, pathIndex) => {
+                    if (pathData.d) {
+                        this.drawFilledPath(pathData.d);
+                    }
+                });
+                
+                // Draw dashed outline on top
                 this.svgCtx.globalAlpha = opacity;
                 this.svgCtx.fillStyle = '#ffffff';
                 
@@ -977,41 +1272,78 @@
                 
                 try {
                     const totalLength = pathElement.getTotalLength();
-                    const dashLength = 100 / scale;
-                    const dashGap = 20 / scale;
-                    const dashWidth = this.lineWeight / scale;
+                    const lineWidth = this.lineWeight / scale;
                     
                     const animationSpeed = this.animationSpeed * 2;
-                    const offset = (this.animationOffset * animationSpeed + pathIndex * Math.PI) % (dashLength + dashGap);
+                    const offset = (this.animationOffset * animationSpeed + pathIndex * Math.PI) % totalLength;
                     
-                    // Create a path that follows the SVG path exactly
-                    this.svgCtx.lineWidth = dashWidth;
-                    this.svgCtx.strokeStyle = '#ffffff';
-                    this.svgCtx.setLineDash([dashLength, dashGap]);
-                    this.svgCtx.lineDashOffset = -offset;
+                    // Create gradient stroke by drawing multiple overlapping lines
+                    const gradientLayers = 8; // Number of layers for smooth gradient
                     
+                    for (let layer = 0; layer < gradientLayers; layer++) {
+                        const layerOpacity = (layer + 1) / gradientLayers * 0.8; // 0.1 to 0.8
+                        const layerWidth = lineWidth * (1 + layer * 0.3); // Increasing width for glow effect
+                        
+                        this.svgCtx.lineWidth = layerWidth;
+                        this.svgCtx.strokeStyle = `rgba(255, 255, 255, ${layerOpacity})`;
+                        this.svgCtx.beginPath();
+                        
+                        // Sample points along the path to create a smooth line
+                        const numPoints = Math.max(200, Math.floor(totalLength / 1));
+                        for (let i = 0; i <= numPoints; i++) {
+                            const distance = (i / numPoints) * totalLength;
+                            try {
+                                const point = pathElement.getPointAtLength(distance);
+                                if (point) {
+                                    if (i === 0) {
+                                        this.svgCtx.moveTo(point.x, point.y);
+                                    } else {
+                                        this.svgCtx.lineTo(point.x, point.y);
+                                    }
+                                }
+                            } catch (e) {
+                                continue;
+                            }
+                        }
+                        this.svgCtx.stroke();
+                    }
+                    
+                    // Draw the moving highlight on top
+                    this.svgCtx.lineWidth = lineWidth * 2;
+                    this.svgCtx.strokeStyle = 'rgba(255, 255, 255, 1)';
                     this.svgCtx.beginPath();
                     
-                    // Sample points along the path to create a smooth line
-                    const numPoints = Math.max(100, Math.floor(totalLength / 2));
-                    for (let i = 0; i <= numPoints; i++) {
-                        const distance = (i / numPoints) * totalLength;
-                        try {
-                            const point = pathElement.getPointAtLength(distance);
-                            if (point) {
-                                if (i === 0) {
-                                    this.svgCtx.moveTo(point.x, point.y);
-                                } else {
-                                    this.svgCtx.lineTo(point.x, point.y);
+                    // Draw a segment around the moving point
+                    const segmentLength = totalLength * 0.15; // 15% of total length
+                    const startDistance = offset - segmentLength / 2;
+                    const endDistance = offset + segmentLength / 2;
+                    
+                    const numSegmentPoints = Math.max(100, Math.floor(segmentLength / 2));
+                    let hasStarted = false;
+                    
+                    for (let i = 0; i <= numSegmentPoints; i++) {
+                        const distance = startDistance + (i / numSegmentPoints) * segmentLength;
+                        
+                        if (distance >= 0 && distance <= totalLength) {
+                            try {
+                                const point = pathElement.getPointAtLength(distance);
+                                if (point) {
+                                    if (!hasStarted) {
+                                        this.svgCtx.moveTo(point.x, point.y);
+                                        hasStarted = true;
+                                    } else {
+                                        this.svgCtx.lineTo(point.x, point.y);
+                                    }
                                 }
+                            } catch (e) {
+                                continue;
                             }
-                        } catch (e) {
-                            continue;
                         }
                     }
                     
-                    this.svgCtx.stroke();
-                    this.svgCtx.setLineDash([]); // Reset line dash
+                    if (hasStarted) {
+                        this.svgCtx.stroke();
+                    }
                     
                 } catch (error) {
                     console.warn('Error drawing path:', error);
@@ -1029,80 +1361,84 @@
                 
                 try {
                     const totalLength = pathElement.getTotalLength();
-                    const dashLength = 100 / scale;
-                    const dashGap = 20 / scale;
-                    const dashWidth = this.lineWeight / scale;
+                    const lineWidth = this.lineWeight / scale;
                     
                     if (isDrawingOut) {
                         const remainingLength = totalLength * (1 - progress);
                         const center = totalLength / 2;
                         const halfLength = remainingLength / 2;
                         
-                        // Create a path that follows the SVG path exactly
-                        this.svgCtx.lineWidth = dashWidth;
-                        this.svgCtx.strokeStyle = '#ffffff';
-                        this.svgCtx.setLineDash([dashLength, dashGap]);
+                        // Create gradient stroke for the remaining portion
+                        const gradientLayers = 6; // Fewer layers for morphing
                         
-                        this.svgCtx.beginPath();
-                        
-                        // Sample points along the visible portion of the path
-                        const numPoints = Math.max(100, Math.floor(remainingLength / 2));
-                        for (let i = 0; i <= numPoints; i++) {
-                            const distance = center - halfLength + (i / numPoints) * remainingLength;
-                            if (distance >= 0 && distance <= totalLength) {
-                                try {
-                                    const point = pathElement.getPointAtLength(distance);
-                                    if (point) {
-                                        if (i === 0) {
-                                            this.svgCtx.moveTo(point.x, point.y);
-                                        } else {
-                                            this.svgCtx.lineTo(point.x, point.y);
+                        for (let layer = 0; layer < gradientLayers; layer++) {
+                            const layerOpacity = (layer + 1) / gradientLayers * 0.6; // 0.1 to 0.6
+                            const layerWidth = lineWidth * (1 + layer * 0.2); // Increasing width for glow effect
+                            
+                            this.svgCtx.lineWidth = layerWidth;
+                            this.svgCtx.strokeStyle = `rgba(255, 255, 255, ${layerOpacity})`;
+                            this.svgCtx.beginPath();
+                            
+                            // Sample points along the visible portion of the path
+                            const numPoints = Math.max(200, Math.floor(remainingLength / 1));
+                            for (let i = 0; i <= numPoints; i++) {
+                                const distance = center - halfLength + (i / numPoints) * remainingLength;
+                                if (distance >= 0 && distance <= totalLength) {
+                                    try {
+                                        const point = pathElement.getPointAtLength(distance);
+                                        if (point) {
+                                            if (i === 0) {
+                                                this.svgCtx.moveTo(point.x, point.y);
+                                            } else {
+                                                this.svgCtx.lineTo(point.x, point.y);
+                                            }
                                         }
+                                    } catch (e) {
+                                        continue;
                                     }
-                                } catch (e) {
-                                    continue;
                                 }
                             }
+                            this.svgCtx.stroke();
                         }
-                        
-                        this.svgCtx.stroke();
                         
                     } else {
                         const currentLength = totalLength * progress;
                         const center = totalLength / 2;
                         const halfLength = currentLength / 2;
                         
-                        // Create a path that follows the SVG path exactly
-                        this.svgCtx.lineWidth = dashWidth;
-                        this.svgCtx.strokeStyle = '#ffffff';
-                        this.svgCtx.setLineDash([dashLength, dashGap]);
+                        // Create gradient stroke for the current portion
+                        const gradientLayers = 6; // Fewer layers for morphing
                         
-                        this.svgCtx.beginPath();
-                        
-                        // Sample points along the visible portion of the path
-                        const numPoints = Math.max(100, Math.floor(currentLength / 2));
-                        for (let i = 0; i <= numPoints; i++) {
-                            const distance = center - halfLength + (i / numPoints) * currentLength;
-                            if (distance >= 0 && distance <= totalLength) {
-                                try {
-                                    const point = pathElement.getPointAtLength(distance);
-                                    if (point) {
-                                        if (i === 0) {
-                                            this.svgCtx.moveTo(point.x, point.y);
-                                        } else {
-                                            this.svgCtx.lineTo(point.x, point.y);
+                        for (let layer = 0; layer < gradientLayers; layer++) {
+                            const layerOpacity = (layer + 1) / gradientLayers * 0.6; // 0.1 to 0.6
+                            const layerWidth = lineWidth * (1 + layer * 0.2); // Increasing width for glow effect
+                            
+                            this.svgCtx.lineWidth = layerWidth;
+                            this.svgCtx.strokeStyle = `rgba(255, 255, 255, ${layerOpacity})`;
+                            this.svgCtx.beginPath();
+                            
+                            // Sample points along the visible portion of the path
+                            const numPoints = Math.max(200, Math.floor(currentLength / 1));
+                            for (let i = 0; i <= numPoints; i++) {
+                                const distance = center - halfLength + (i / numPoints) * currentLength;
+                                if (distance >= 0 && distance <= totalLength) {
+                                    try {
+                                        const point = pathElement.getPointAtLength(distance);
+                                        if (point) {
+                                            if (i === 0) {
+                                                this.svgCtx.moveTo(point.x, point.y);
+                                            } else {
+                                                this.svgCtx.lineTo(point.x, point.y);
+                                            }
                                         }
+                                    } catch (e) {
+                                        continue;
                                     }
-                                } catch (e) {
-                                    continue;
                                 }
                             }
+                            this.svgCtx.stroke();
                         }
-                        
-                        this.svgCtx.stroke();
                     }
-                    
-                    this.svgCtx.setLineDash([]); // Reset line dash
                     
                 } catch (error) {
                     console.warn('Error drawing path animation:', error);
